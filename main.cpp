@@ -20,6 +20,7 @@ struct DosDetectorState{
 	long long packetNumber = 0;
 	long long countCapturedPacket = 0;
 };
+
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
 	DosDetectorState *state = (DosDetectorState*)args;
 	state->packetNumber++;
@@ -103,7 +104,7 @@ int main(){
 	
 	// pcap_lookupnet() is used to determine the IPv4 network number and mask associated with the network device device.
 	if(pcap_lookupnet(dev, &net, &mask, errbuf) != 0){
-		printf("Can't get netmask for the device\n");
+		printf("Cannot get netmask for the device\n");
 		return(2);
 	}
 	/* pcap_t *pcap_open_live(const char *device, int snaplen, int promisc, int to_ms, char *errbuf);
@@ -118,7 +119,8 @@ int main(){
 	
 	handle = pcap_open_live(dev, BUFSIZ, 0, 1000000, errbuf);
 	if(handle == NULL){
-		printf("Can't open device\n");
+		printf("Cannot open device\n");
+		printf("%s\n", errbuf);
 		return (2);
 	}
 	
@@ -131,12 +133,12 @@ int main(){
 	*/
 	
 	if(pcap_compile(handle, &fp, *filter_expression, 1, mask) != 0){
-		printf("Couldn't parse filter\n");
+		printf("Could not parse filter\n");
 		return (2);	
 	}
 	
 	if(pcap_setfilter(handle, &fp) != 0){
-		printf("Couldn't install filter");
+		printf("Could not install filter");
 		return (2);
 	}
 	
