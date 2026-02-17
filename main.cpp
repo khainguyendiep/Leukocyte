@@ -89,10 +89,9 @@ int main(){
 	pcap_if_t *alldevsp = NULL;
 	char *listDevs[1000];
 	
-	//const char *filter_expression[] ={(tcp[tcpflags] & tcp-syn != 0) or udp or icmp"};
+	//const char *filter_expression[] ={(tcp[tcpflags] != 0) or udp or icmp"};
 	//tcpflags is located in the 13th byte of the TCP header (counting from 0).
-	//tcp-syn has a value of 2 (00000010).
-	const char *filter_expression[] ={"(tcp[13] & 2 != 0) or udp or icmp"};
+	const char *filter_expression[] ={"(tcp[13] != 0) or udp or icmp"};
 
 	if(pcap_findalldevs(&alldevsp, errbuf) != 0){
 		printf("Finding netword card error!!!");
@@ -117,7 +116,7 @@ int main(){
 	*
 	*/	
 	
-	handle = pcap_open_live(dev, BUFSIZ, 0, 1000000, errbuf);
+	handle = pcap_open_live(dev, BUFSIZ, 1, 1000000, errbuf);
 	if(handle == NULL){
 		printf("Cannot open device\n");
 		printf("%s\n", errbuf);
@@ -145,7 +144,7 @@ int main(){
 	state.handle = handle;
 	state.timeBegin = std::chrono::steady_clock::now();
 	pcap_loop(handle, -1, got_packet, (u_char*)&state);
-	printf("Detected sucessfully");
+	printf("Finished detection.");
 	pcap_close(handle);
 	return(0);
 }
