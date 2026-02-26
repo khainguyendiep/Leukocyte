@@ -2,6 +2,8 @@
 #include <pcap.h>
 #include <stdlib.h>
 #include <chrono>
+#include <map>
+#include <string.h>
 
 #if defined(_WIN32)
     #include <winsock2.h>
@@ -21,7 +23,17 @@ struct DosDetectorState{
 	long long countCapturedPacket = 0;
 };
 
+static const char hex_table[] = "0123456789abcdef";
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
+	char source[10]; //10 memory cells can be contain 4 bytes of source IPv4 (XX.YY.ZZ.TT)
+	int offset = 0; //offset of source
+	for(int i=26; i<30; i++){
+		if(*(packet+i) < 16){ //add 0 before byte < 16 in hexdecimal (in hex it just has 1 character) 
+			offset += snprintf(source + offset, sizeof(source) - offset, "0");
+		}
+		offset += snprintf(source + offset, sizeof(source) - offset, "%x", packet[i]);
+	}
+	//printf("%s\n", source);
 	DosDetectorState *state = (DosDetectorState*)args;
 	state->packetNumber++;
 	state->countCapturedPacket++;
@@ -39,30 +51,30 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	}
 }
 
-bool listAllDevs(pcap_if_t *alldevsp, char *listDev[], int &countDevs){
+bool listAllDevs(pcap_if_t *alldevsp, char *listDev[], int &countDevs, char *list_ipv4_devs[]){
 	for(pcap_if_t *d = alldevsp; d != NULL; d = d->next){
-		bool hasIP = false;
 		// finding ipv4 of a device by iterating a linked list of addresses (include ipv6, ipv4, MAC address... without any order)
 		for(pcap_addr_t *a = d->addresses; a != NULL; a = a->next){
-			if(a->addr->sa_family == AF_INET){
-				hasIP = true;
+			if(a->addr->sa_family == AF_INET){ // device has IP
+				countDevs++;
+				listDev[countDevs] = d->name;
+				printf("[%d] - %s - %s\n", countDevs, d->name, d->description);
+				struct sockaddr_in *dev_info = (struct sockaddr_in *)a->addr;
+				// because of inet_ntoa just point to a static memory in despite the differences between the two sin_addr
+				// so we need to use strdup() to allocate each sin_addr to new position
+				list_ipv4_devs[countDevs] = strdup(inet_ntoa(dev_info->sin_addr));
 				break;
 			}
-		}
-		if(hasIP == true){
-			countDevs++;
-			listDev[countDevs] = d->name;
-			printf("[%d] - %s - %s\n", countDevs, d->name, d->description);
 		}
 	}
 	if(countDevs == 0) return false;
 	return true;
 }
-char* choosingDev(pcap_if_t *alldevsp, char *listDevs[]){
-	int countDevs = 0;	
-	if(listAllDevs(alldevsp, listDevs, countDevs) == false){
+void choosingDev(pcap_if_t *alldevsp, char *listDevs[], char **dev_name, char *list_ipv4_devs[], char** ipv4_dev){
+	int countDevs = 0;
+	if(listAllDevs(alldevsp, listDevs, countDevs, list_ipv4_devs) == false){
 		printf("No devices available.\n");
-		return listDevs[0];
+		return; 
 	}
 	printf("Choose one device:\n");
 	int devOrderNumber = 0;
@@ -75,9 +87,13 @@ char* choosingDev(pcap_if_t *alldevsp, char *listDevs[]){
 			printf("Please choosing available number.\n"); 
 		}
 	}
-	return listDevs[devOrderNumber];
+	*ipv4_dev = list_ipv4_devs[devOrderNumber];
+	*dev_name = listDevs[devOrderNumber];
+	printf("Device: %s - IPv4: %s\n", *dev_name, *ipv4_dev);
+	return;
 }
 
+const int MAX_DEVS = 10000; //just a random number
 int main(){
 	printf("Start detect\n");
 	DosDetectorState state;
@@ -85,24 +101,32 @@ int main(){
 	bpf_u_int32 mask; // netmask of sniffing device
 	bpf_u_int32 net;
 	struct bpf_program fp; // the complied filter expression
-	char *dev, errbuf[PCAP_ERRBUF_SIZE];
+	char *dev_name = NULL, errbuf[PCAP_ERRBUF_SIZE];
 	pcap_if_t *alldevsp = NULL;
-	char *listDevs[1000];
+	char *listDevs[MAX_DEVS];
+	char *list_ipv4_devs[MAX_DEVS];
+	char *ipv4_dev;
 	
-	//const char *filter_expression[] ={(tcp[tcpflags] != 0) or udp or icmp"};
-	//tcpflags is located in the 13th byte of the TCP header (counting from 0).
-	const char *filter_expression[] ={"(tcp[13] != 0) or udp or icmp"};
+	for(int i =0; i<MAX_DEVS ; i++){
+		listDevs[i] = NULL;
+		list_ipv4_devs[i] = NULL;
+	}
 
 	if(pcap_findalldevs(&alldevsp, errbuf) != 0){
 		printf("Finding netword card error!!!");
 		return (2);
 	}
 	
-	//choosing device
-	dev = choosingDev(alldevsp, listDevs);
+	//update device name and ipv4 of this device
+	choosingDev(alldevsp, listDevs, &dev_name, list_ipv4_devs, &ipv4_dev);
 	
+	//10000 is a random number to contain all content of expression
+	char filter_expression[10000];
+	//tcpflags is located in the 13th byte of the TCP header (counting from 0).
+	snprintf(filter_expression, sizeof(filter_expression), "((tcp[13] != 0) or udp or icmp) and (not src host %s)", ipv4_dev);
+
 	// pcap_lookupnet() is used to determine the IPv4 network number and mask associated with the network device device.
-	if(pcap_lookupnet(dev, &net, &mask, errbuf) != 0){
+	if(pcap_lookupnet(dev_name, &net, &mask, errbuf) != 0){
 		printf("Cannot get netmask for the device\n");
 		return(2);
 	}
@@ -116,7 +140,7 @@ int main(){
 	*
 	*/	
 	
-	handle = pcap_open_live(dev, BUFSIZ, 1, 1000000, errbuf);
+	handle = pcap_open_live(dev_name, BUFSIZ, 1, 1000000, errbuf);
 	if(handle == NULL){
 		printf("Cannot open device\n");
 		printf("%s\n", errbuf);
@@ -131,7 +155,7 @@ int main(){
 	 * bpf_u_int32 netmask: netmask of listening network card (the mask parameter of pcap_lookupnet)
 	*/
 	
-	if(pcap_compile(handle, &fp, *filter_expression, 1, mask) != 0){
+	if(pcap_compile(handle, &fp, filter_expression, 1, mask) != 0){
 		printf("Could not parse filter\n");
 		return (2);	
 	}
