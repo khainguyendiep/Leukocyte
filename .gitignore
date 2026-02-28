@@ -1,0 +1,8 @@
+# Object file
+*.o
+
+# Execute file
+main
+
+# Temporary file
+*.swp

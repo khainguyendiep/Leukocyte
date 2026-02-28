@@ -2,9 +2,14 @@
 #include <pcap.h>
 #include <stdlib.h>
 #include <chrono>
-#include <map>
 #include <string.h>
+#include "libs/uthash/src/uthash.h"
+#include <queue>
+#include <vector>
+#include <utility>
+#include <cstdlib>
 
+// If this comment still exists, then this program does not work on Windows
 #if defined(_WIN32)
     #include <winsock2.h>
     #pragma comment(lib, "ws2_32.lib") 
@@ -12,29 +17,89 @@
 	#include <sys/socket.h>
     #include <unistd.h>
 #endif
-const long long DOSPACKETTHRESHOLD = 15000; // packets
+
+const long long DOSPACKETTHRESHOLD = 8000; // packets
 const double DOSTIMETHRESHOLD = 10000; //milisecond
 
 struct DosDetectorState{
+	struct comparator{
+		bool operator()(std::pair<char*, int> a, std::pair<char*, int> b){ //max heap
+			return a.second < b.second;
+		}
+	};
 	pcap_t *handle;
 	std::chrono::steady_clock::time_point timeBegin = std::chrono::steady_clock::now();
 	std::chrono::steady_clock::time_point timeEnd = std::chrono::steady_clock::now();
-	long long packetNumber = 0;
-	long long countCapturedPacket = 0;
+	long long packetNumber;
+	long long countCapturedPacket;
+	std::priority_queue<std::pair<char*, int>, std::vector<std::pair<char*, int>>, struct comparator> most_sender;
 };
 
-static const char hex_table[] = "0123456789abcdef";
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
-	char source[10]; //10 memory cells can be contain 4 bytes of source IPv4 (XX.YY.ZZ.TT)
-	int offset = 0; //offset of source
-	for(int i=26; i<30; i++){
-		if(*(packet+i) < 16){ //add 0 before byte < 16 in hexdecimal (in hex it just has 1 character) 
-			offset += snprintf(source + offset, sizeof(source) - offset, "0");
+// hashtable for char array, using uthash lib
+struct hash_struct{
+	char source_IPv4[20];
+	int number_packets_sent;
+	UT_hash_handle hh;
+};
+hash_struct *hash_head = NULL;
+void add_source_into_hashtable(struct hash_struct *s){
+	HASH_ADD_STR(hash_head, source_IPv4, s);
+}
+struct hash_struct *is_source_exist(char source[20]){
+	struct hash_struct *s;
+	HASH_FIND_STR(hash_head, source, s);
+	return s;
+}
+
+class blocking_dos_source{
+public:
+	bool ban_IP(const char *Dos_source_IPv4){
+		for(int i = 0; Dos_source_IPv4[i] != '\0'; i++){
+			if(Dos_source_IPv4[i] <'0' && Dos_source_IPv4[i] >'9' && Dos_source_IPv4[i] != '.'){
+				printf("IP address structure is invalid!\n"); // avoid cmd injection
+				return false;
+			}
 		}
-		offset += snprintf(source + offset, sizeof(source) - offset, "%x", packet[i]);
+		char command[1000]; 
+		//blocking dos-source IP by using terminal 
+		snprintf(command, sizeof(command), "sudo iptables -I INPUT -s %s -j DROP", Dos_source_IPv4);
+		return excute_command(command);
 	}
+private:
+	bool excute_command(char *command){
+		int status = std::system(command);
+		if(status == -1) return false;
+		// WIEXITED: Check if the child process (shell command) terminates normally
+		// WEXITSTATUS:  Get the actual error code (Exit Code) that the command returns, if it == 0, it is exit sucessfully
+		return WIFEXITED(status) && (WEXITSTATUS(status) == 0);
+	}
+};
+
+void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
+	DosDetectorState *state = (DosDetectorState*)args; //using local variables
+	char source[20]; //20 memory cells can be contain 4 bytes of source IPv4 (XX.YY.ZZ.TT)
+	int offset = 0; //offset of source
+	for(int i=26; i<30; i++){ //data from byte 26 to byte 30 in a packet is source of packet
+		if(i == 29) offset += snprintf(source+offset, sizeof(source) - offset, "%d", *(packet+i)); //after the last byte we not add '.' into string
+		else offset += snprintf(source+offset, sizeof(source) - offset, "%d.", *(packet+i));
+	}
+
+	//adding all sources that sent packets to localhost
+	struct hash_struct *s = is_source_exist(source);
+	if(s == NULL){
+		s = (struct hash_struct *) malloc(sizeof(struct hash_struct));
+		strcpy(s->source_IPv4, source);
+		s->number_packets_sent = 1;
+		add_source_into_hashtable(s);
+	}
+	else{
+		s->number_packets_sent++;
+	}
+
+	//adding every source into priority queue to find the source that sent the most packets
+	state->most_sender.push({s->source_IPv4, s->number_packets_sent});
+
 	//printf("%s\n", source);
-	DosDetectorState *state = (DosDetectorState*)args;
 	state->packetNumber++;
 	state->countCapturedPacket++;
 	printf("Captured %lld packets\n", state->packetNumber);
@@ -42,7 +107,12 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			state->timeEnd = std::chrono::steady_clock::now();
 			std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(state->timeEnd - state->timeBegin);
 			if(elapsedTime.count() <= DOSTIMETHRESHOLD){
-				printf("The computer got a Dos attack.\n");
+				printf("The server got a Dos attack from %s\n", source);
+				// blocking source that sent most packets if it sent >= 90% DOSPACKETTHRESHOLD (packets)
+				if((double)state->most_sender.top().second >= (double)DOSPACKETTHRESHOLD * (0.9)){
+					class blocking_dos_source blocker;
+					blocker.ban_IP(state->most_sender.top().first);
+				}
 				pcap_breakloop(state->handle);
 			}
 		printf("Elapsed time: %ld\n", elapsedTime.count());
@@ -96,7 +166,7 @@ void choosingDev(pcap_if_t *alldevsp, char *listDevs[], char **dev_name, char *l
 const int MAX_DEVS = 10000; //just a random number
 int main(){
 	printf("Start detect\n");
-	DosDetectorState state;
+	DosDetectorState state; //local variable using in call_back function
 	pcap_t *handle;
 	bpf_u_int32 mask; // netmask of sniffing device
 	bpf_u_int32 net;
@@ -105,7 +175,7 @@ int main(){
 	pcap_if_t *alldevsp = NULL;
 	char *listDevs[MAX_DEVS];
 	char *list_ipv4_devs[MAX_DEVS];
-	char *ipv4_dev;
+	char *ipv4_dev; // own IPv4 address
 	
 	for(int i =0; i<MAX_DEVS ; i++){
 		listDevs[i] = NULL;
@@ -167,6 +237,9 @@ int main(){
 	
 	state.handle = handle;
 	state.timeBegin = std::chrono::steady_clock::now();
+	state.packetNumber = 0;
+	state.countCapturedPacket = 0;
+
 	pcap_loop(handle, -1, got_packet, (u_char*)&state);
 	printf("Finished detection.");
 	pcap_close(handle);
