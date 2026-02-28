@@ -5,7 +5,7 @@
 ---
 ## Main idea
 - Using pcap library to capture packets on the socket, then measuring time per DOSTIMETHRESHOLD to determine attack threshold.
-In this project, I tried to simulate a Dos attack and measured that 15000 packets (DOSPACKETTHRESHOLD) per 10 seconds (DOSTIMETHRESHOLD) is a reasonable numbers.
+In this project, I tried to simulate a Dos attack and measured that 8000 packets (DOSPACKETTHRESHOLD) per 10 seconds (DOSTIMETHRESHOLD) is a reasonable numbers.
 ---
 ## Installation
 ### HTTPS Clone
@@ -16,19 +16,10 @@ clone https://github.com/khainguyendiep/DosDetector
 # Navigate to the cloned directory
 cd DosDetector
 ```
----
+
 ### For Windows
-- We need to compile to excuted file on Windows by using minGW, so you have to install [mingGW](https://www.mingw-w64.org/downloads/) first.
-- Then we install [npcap installer](https://npcap.com/#download) to pcap library can be work smoothly.
-- Typing this command the compile the code:
-```bash
-# Compile the code
-x86_64-w64-mingw32-g++ main.cpp -o main.exe \
--I./npcap-sdk/Include \
--L./npcap-sdk/Lib/x64 \
--lwpcap -lws2_32 -static-libgcc -static-libstdc++
-```
----
+- Currently, it is not supported for Windows.
+
 ### For Linux
 - Install g++:
 ```bash
@@ -41,13 +32,17 @@ sudo apt install libpcap-dev
 - Open the terminal and move to folder has been cloned and typing on the terminal:
 ```bash
 # Compile the code
-exec "!g++ -std=c++17 -Wall % -o %< -lpcap"
+exec "!g++ -std=c++17 -Wall % -o %< -lpcap && sudo ./%<"
 ```
----
 ### Running
 - Running the executed file that was just created.
 - Choosing an network card you want to use.
-- Waiting for Dos attack.
+- Waiting for Dos attack, and enjoy.
+---
+## Acknowledgements
+- [uthash.h](https://github.com/troydhanson/uthash/blob/2031adfd8cd6f8f498e0f4a9055648b19496f12e/src/uthash.h) - A library for creating and managing hash tables for character arrays, developed by [Troy D. Hanson](https://github.com/troydhanson) and community.
 ---
 ## License
-- MIT license 
+- This project is licensed under the **MIT License** - see the [LICENSE](https://github.com/khainguyendiep/DosDetector/blob/main/LICENSE) file for details.
+### Third-party Licenses
+- This project incorporates code from [Troy D. Hanson](https://github.com/troydhanson) licensed under the BSD License.
