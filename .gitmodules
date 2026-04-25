@@ -1,6 +1,6 @@
 [submodule "libs/uthash"]
 	path = libs/uthash
 	url = https://github.com/troydhanson/uthash.git
-[submodule "libs/libs/json"]
-	path = libs/libs/json
+[submodule "libs/json"]
+	path = libs/json
 	url = https://github.com/nlohmann/json.git
