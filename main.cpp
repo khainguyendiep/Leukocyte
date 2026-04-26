@@ -3,11 +3,22 @@
 #include <stdlib.h>
 #include <chrono>
 #include <string.h>
-#include "libs/uthash/src/uthash.h"
+#include "libs/uthash/src/uthash.h" // This lib help to  add a hash table to any C structure
 #include <queue>
 #include <vector>
 #include <utility>
 #include <cstdlib>
+#include <nlohmann/json.hpp> // Export data to json
+#include <fstream>
+
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/tcp.h>
+#include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
+#include <arpa/inet.h>
+
+using json = nlohmann::json;
 
 // If this comment still exists, then this program does not work on Windows
 #if defined(_WIN32)
@@ -41,10 +52,13 @@ struct hash_struct{
 	int number_packets_sent;
 	UT_hash_handle hh;
 };
+
 hash_struct *hash_head = NULL;
+
 void add_source_into_hashtable(struct hash_struct *s){
 	HASH_ADD_STR(hash_head, source_IPv4, s);
 }
+
 struct hash_struct *is_source_exist(char source[20]){
 	struct hash_struct *s;
 	HASH_FIND_STR(hash_head, source, s);
@@ -65,6 +79,7 @@ public:
 		snprintf(command, sizeof(command), "sudo iptables -I INPUT -s %s -j DROP", Dos_source_IPv4);
 		return excute_command(command);
 	}
+
 private:
 	bool excute_command(char *command){
 		int status = std::system(command);
@@ -74,6 +89,35 @@ private:
 		return WIFEXITED(status) && (WEXITSTATUS(status) == 0);
 	}
 };
+
+std::string get_timestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto in_time_t = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::gmtime(&in_time_t), "%Y-%m-%dT%H:%M:%SZ");
+    return ss.str();
+}
+
+void record_log(std::string src_ip, int dest_port, std::string protocol){
+	json exported_log;
+	exported_log["timestamp"]= get_timestamp();
+
+	exported_log["event"] = "DOS_attack_detected";
+    exported_log["severity"] = "high";
+    exported_log["threat_id"] = 1005;
+	
+	exported_log["network"]["src_ip"] = src_ip;
+	exported_log["network"]["dest_port"] = dest_port;
+	exported_log["network"]["protocol"] = protocol;
+
+	exported_log["description"] = "Possible DoS attack: Request rate exceeded threshold.";
+	std::ofstream log_file("/var/log/anti_DOS/anti_DOS.log", std::ios::app);
+	if (log_file.is_open()) {
+        // dump() with no arguments ensures the JSON is on one single line
+        log_file << exported_log.dump() << std::endl;
+        log_file.close();
+    }
+}
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
 	DosDetectorState *state = (DosDetectorState*)args; //using local variables
@@ -107,12 +151,49 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			state->timeEnd = std::chrono::steady_clock::now();
 			std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(state->timeEnd - state->timeBegin);
 			if(elapsedTime.count() <= DOSTIMETHRESHOLD){
-				printf("The server got a Dos attack from %s\n", source);
+				printf("The server got a Dos attack from %s\n", source); 
 				// blocking source that sent most packets if it sent >= 90% DOSPACKETTHRESHOLD (packets)
 				if((double)state->most_sender.top().second >= (double)DOSPACKETTHRESHOLD * (0.9)){
 					class blocking_dos_source blocker;
 					blocker.ban_IP(state->most_sender.top().first);
 				}
+
+				//Skip the Ethernet header (byte 14th is the start of protocol field)
+    			struct ip *ip_header = (struct ip *)(packet + 14);
+    			// Identify the Protocol
+    			int protocol_id = ip_header->ip_p;
+				std::string protocol;
+    			// The variable ip_hl stands for Internet Header Length. In the actual binary structure of an IP packet, this field is only 4 bits long.
+				// Because 4 bits can only hold a maximum value of 15 (2^4 - 1), the designers of the IP protocol couldn't store the actual byte count there (since 15 bytes isn't even enough for the minimum 20-byte header).
+				// To solve this, the protocol defines the header length in 32-bit words (units of 4 bytes).
+				// If ip_hl is 5: 5 * 4 = 20 bytes (This is the standard minimum).
+				// If ip_hl is 15: 15 * 4 = 60 bytes (This is the maximum possible size).
+    			int ip_header_len = ip_header->ip_hl * 4;
+
+    			//Extract the Destination Port based on the protocol
+    			short dest_port = 0;
+
+    			if(protocol_id == IPPROTO_TCP){
+        			struct tcphdr *tcp_header = (struct tcphdr *)(packet + 14 + ip_header_len);
+        			dest_port = ntohs(tcp_header->th_dport); // Convert to host byte order
+					protocol = "tcp";
+    			} 
+    			else if(protocol_id == IPPROTO_UDP){
+        			struct udphdr *udp_header = (struct udphdr *)(packet + 14 + ip_header_len);
+        			dest_port = ntohs(udp_header->uh_dport); // Convert to host byte order
+					protocol = "udp";
+    			}
+			   	else if(protocol_id == IPPROTO_ICMP){
+        			//struct icmphdr *icmp_header = (struct icmp *)(packet + 14 + ip_header_len);
+        			dest_port = -1;
+					protocol = "icmp";
+    			}
+    			else{ //other protocol
+					protocol = "unknown";
+					dest_port = -1;
+				}
+				record_log(source, dest_port, protocol);
+
 				pcap_breakloop(state->handle);
 			}
 		printf("Elapsed time: %ld\n", elapsedTime.count());
