@@ -5,7 +5,7 @@ CFLAGS = -std=c11 -Wall -g
 CXXFLAGS = -std=c++17 -Wall -g
 
 # 2. Paths and libraries
-INC = -I libs/uthash/src
+INC = -I libs/uthash/src -I libs/json/single_include
 LIBS = -lpcap
 
 # 3. Source detection
