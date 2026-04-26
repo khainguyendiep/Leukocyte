@@ -1,4 +1,4 @@
-# DOSDETECTOR
+# ANTI-DOS
 ---
 ## Introduction
 - This project has been created to dectect Dos (Denial of services) attacks for Windows and Linux devices. The core component of this code relies on [pcap library](https://www.tcpdump.org/manpages/pcap.3pcap.html).
