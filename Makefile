@@ -1,37 +1,47 @@
-# 1. Compiler and flags
-CC = gcc
+# Compiler
 CXX = g++
-CFLAGS = -std=c11 -Wall -g
-CXXFLAGS = -std=c++17 -Wall -g
 
-# 2. Paths and libraries
-INC = -I libs/uthash/src -I libs/json/single_include
+# Compiler flags
+# -Wall -Wextra: Display warnings for safer code
+# -std=c++17: Use C++17 standard
+# -O2: Performance optimization
+CXXFLAGS = -Wall -Wextra -std=c++17 -O2
+
+# Include paths
+# -I.: allows #include "core/...", #include "utils/...", #include "tools/..." from project root
+INC = -I . -I libs/uthash/src -I libs/json/single_include
+
+# Libraries to link
+# -lpcap: Required for pcap library
 LIBS = -lpcap
 
-# 3. Source detection
-SRCS_C = $(wildcard *.c)
-SRCS_CXX = $(wildcard *.cpp)
+# ─── Shared core object files (reused by every tool) ──────────────────────────
+CORE_SRCS = core/logger/logger.cpp \
+            core/network/packetParser.cpp \
+            core/network/networkUtils.cpp \
+            core/utils/utils.cpp
+CORE_OBJS = $(CORE_SRCS:.cpp=.o)
 
-# 4. Generate target names (remove extension .c and .cpp)
-TARGETS_C = $(SRCS_C:.c=)
-TARGETS_CXX = $(SRCS_CXX:.cpp=)
-ALL_TARGETS = $(TARGETS_C) $(TARGETS_CXX)
+# ─── anti_dos tool ────────────────────────────────────────────────────────────
+ANTIDOS_TARGET = anti_DOS
+ANTIDOS_SRCS   = tools/anti_DOS/main.cpp \
+                 tools/anti_DOS/anti_DOS.cpp
+ANTIDOS_OBJS   = $(ANTIDOS_SRCS:.cpp=.o)
 
-# 5. Build rules
-all: $(ALL_TARGETS)
+# ─── Default target: build all tools ──────────────────────────────────────────
+all: $(ANTIDOS_TARGET)
 
-# Rule for C++ file (from .cpp to execute file)
-%: %.cpp
-	$(CXX) $(CXXFLAGS) $(INC) $< -o $@ $(LIBS)
+# Link anti_dos: its own objects + shared core objects
+$(ANTIDOS_TARGET): $(ANTIDOS_OBJS) $(CORE_OBJS)
+	$(CXX) $(CXXFLAGS) $(INC) -o $(ANTIDOS_TARGET) $(ANTIDOS_OBJS) $(CORE_OBJS) $(LIBS)
 
-# Rule for C file (from .c to execute file)
-%: %.c
-	$(CC) $(CFLAGS) $(INC) $< -o $@ $(LIBS)
+# Rule to compile any .cpp file to a .o file in the same directory
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
-# 6. Clean up
+# Clean command to remove all objects and executables
 clean:
-	rm -f $(ALL_TARGETS) *.o
+	find . -name "*.o" -delete
+	rm -f $(ANTIDOS_TARGET)
 
-# 7. Run (run first file found)
-run: all
-	sudo ./$(firstword $(ALL_TARGETS))
+.PHONY: all clean
