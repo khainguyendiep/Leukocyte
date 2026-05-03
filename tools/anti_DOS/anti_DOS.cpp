@@ -49,11 +49,15 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
 				LogEvent event;
 				event.timestamp = format_timestamp_from_header(header);
+				event.tool = "anti_DOS";
+				event.event_type = "DOS attack detected";
 				event.severity = "high";
 				event.threat_id = 100050;
 				event.src_ip = captured_packet.src_ip;
-				event.tool = "anti_DOS";
-				write_log(event, "/var/log/soc-toolkit/anti_DOS.log");
+				event.dest_port = captured_packet.dest_port;
+				event.protocol = captured_packet.protocol;
+				event.description =	"Possible DoS attack: Request rate exceeded threshold";
+				write_log(event, "/var/log/soc_toolkit/anti_DOS.log");
 
 				pcap_breakloop(state->handle);
 			}
