@@ -11,5 +11,5 @@
 # Leading slash anchors the pattern to project root only — prevents matching
 # tools/anti_DOS/ directory or any other subdirectory with the same name
 /anti_DOS
-/port_scan
+/port_scan_detector
 /brute_force
