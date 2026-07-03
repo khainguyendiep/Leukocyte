@@ -4,7 +4,7 @@
 
 using json = nlohmann::json;
 
-void write_log(const LogEvent &event, const std::string &log_path) {
+void write_log(const LogEvent &event, const std::string &LOG_PATH) {
     json j;
     j["timestamp"]          = event.timestamp;
     j["tool"]               = event.tool;
@@ -16,7 +16,7 @@ void write_log(const LogEvent &event, const std::string &log_path) {
     j["network"]["protocol"]  = event.protocol;
     j["description"]        = event.description;
 
-    std::ofstream log_file(log_path, std::ios::app);
+    std::ofstream log_file(LOG_PATH, std::ios::app);
 	if (log_file.is_open()) {
         // dump() with no arguments ensures the JSON is on one single line
         log_file << j.dump() << std::endl;
