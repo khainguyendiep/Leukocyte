@@ -57,7 +57,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				event.dest_port = captured_packet.dest_port;
 				event.protocol = captured_packet.protocol;
 				event.description =	"Possible DoS attack: Request rate exceeded threshold";
-				write_log(event, "/var/log/soc_toolkit/anti_DOS.log");
+				write_log(event, state->LOG_PATH);
 
 				pcap_breakloop(state->handle);
 			}
