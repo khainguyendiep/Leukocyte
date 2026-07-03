@@ -15,6 +15,10 @@ INC = -I . -I libs/uthash/src -I libs/json/single_include
 # -lpcap: Required for pcap library
 LIBS = -lpcap
 
+# ─── Submodule config ──────────────────────────────────────────────────────────
+UTHASH_PATH  := libs/uthash
+JSON_PATH    := libs/json
+
 # ─── Shared core object files (reused by every tool) ──────────────────────────
 CORE_SRCS = core/logger/logger.cpp \
             core/network/packetParser.cpp \
@@ -34,25 +38,50 @@ PORTSCAN_SRCS   = tools/port_scan_detector/main.cpp \
                   tools/port_scan_detector/port_scan_detector.cpp
 PORTSCAN_OBJS   = $(PORTSCAN_SRCS:.cpp=.o)
 
+# ─── All object files (for clean target) ───────────────────────────────────────
+ALL_OBJS = $(CORE_OBJS) $(ANTIDOS_OBJS) $(PORTSCAN_OBJS)
+
 # ─── Default target: build all tools ──────────────────────────────────────────
-# Add new tool targets here as the project grows
-all: $(ANTIDOS_TARGET) $(PORTSCAN_TARGET)
+all: setup $(ANTIDOS_TARGET) $(PORTSCAN_TARGET)
 
 # Link anti_DOS: its own objects + shared core objects
 $(ANTIDOS_TARGET): $(ANTIDOS_OBJS) $(CORE_OBJS)
-	$(CXX) $(CXXFLAGS) $(INC) -o $(ANTIDOS_TARGET) $(ANTIDOS_OBJS) $(CORE_OBJS) $(LIBS)
+	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^ $(LIBS)
 
 # Link port_scan_detector: its own objects + shared core objects
 $(PORTSCAN_TARGET): $(PORTSCAN_OBJS) $(CORE_OBJS)
-	$(CXX) $(CXXFLAGS) $(INC) -o $(PORTSCAN_TARGET) $(PORTSCAN_OBJS) $(CORE_OBJS) $(LIBS)
+	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^ $(LIBS)
 
 # Rule to compile any .cpp file to a .o file in the same directory
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(INC) -c $< -o $@
 
-# Clean command to remove all objects and executables
-clean:
-	find . -name "*.o" -delete
-	rm -f $(ANTIDOS_TARGET) $(PORTSCAN_TARGET)
+# ─── Submodule setup ───────────────────────────────────────────────────────────
+setup: .submodule_ready
 
-.PHONY: all clean
+# Sentinel file: skip setup if already initialized
+.submodule_ready:
+	@echo "Initializing submodules with sparse-checkout..."
+	@git submodule update --init --recursive
+	@cd $(UTHASH_PATH) && git sparse-checkout init --cone && git sparse-checkout set src
+	@cd $(JSON_PATH) && git sparse-checkout init --cone && git sparse-checkout set single_include
+	@git submodule update --checkout
+	@touch .submodule_ready
+	@echo "Submodules are ready!"
+
+# ─── Cleanup ───────────────────────────────────────────────────────────────────
+clean:
+	@rm -f $(ALL_OBJS)
+
+# "fclean" will auto call "clean" first to clean up .o file
+fclean: clean
+	@rm -f $(ANTIDOS_TARGET) $(PORTSCAN_TARGET) .submodule_ready
+
+fclean_libs: fclean
+	@git submodule deinit -f $(UTHASH_PATH) $(JSON_PATH)
+	@git rm -f $(UTHASH_PATH) $(JSON_PATH)
+	@rm -rf .git/modules/$(UTHASH_PATH) .git/modules/$(JSON_PATH)
+
+re: fclean all
+
+.PHONY: all setup clean fclean fclean_libs re

@@ -6,6 +6,7 @@
 
 # Generated during compile stage — recreated by make, never committed
 *.o
+.submodule_ready
 
 # ─── Executable files (tool binaries) ─────────────────────────────────────────
 # Leading slash anchors the pattern to project root only — prevents matching
