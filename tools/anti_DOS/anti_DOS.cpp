@@ -48,7 +48,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				printf("The server got a Dos attack from %s\n", captured_packet.src_ip);
 
 				LogEvent event;
-				event.timestamp = format_timestamp_from_header(header);
+				event.event_time = format_timestamp_from_header(header);
 				event.tool = "anti_DOS";
 				event.event_type = "DOS attack detected";
 				event.severity = "high";

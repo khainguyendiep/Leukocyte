@@ -8,7 +8,7 @@
 // without causing multiple definition errors at link time
 
 struct LogEvent {
-	std::string timestamp;
+	std::string event_time;
     std::string tool;        // "anti_dos", "port_scan", "brute_force"...
     std::string event_type;  // "attack_detected", "scan_detected"...
     std::string severity;    // "low", "medium", "high", "critical"

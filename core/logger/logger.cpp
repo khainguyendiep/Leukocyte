@@ -6,7 +6,7 @@ using json = nlohmann::json;
 
 void write_log(const LogEvent &event, const std::string &LOG_PATH) {
     json j;
-    j["timestamp"]          = event.timestamp;
+    j["event_time"]          = event.event_time;
     j["tool"]               = event.tool;
     j["event_type"]         = event.event_type;
     j["severity"]           = event.severity;
