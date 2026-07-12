@@ -16,11 +16,12 @@ The system architecture and workflow operate as follows:
 ![attack detection](../../asset/attack_detection.png)
 - The event is then logged in a configured log file:
 ![log record](../../asset/log_record.png)
-- The Wazuh manager continuously monitors the log file and triggers an alert whenever a new log entry indicating a DoS attack is recorded:
+The Wazuh manager continuously monitors the log file and triggers an alert whenever a new log entry indicating a DoS attack is recorded:
 ![dashboard fire alert](../../asset/dashboard_fire_alert.png)
 - After the alert is fired, the Wazuh Active-Response module is triggered and calls the configured script, which contains the commands to add the malicious IP to ipset. This action is also recorded in `active-responses.log`, making it easy to trace back why an IP was blocked:
+![recorded log into active-responses-log](../../asset/recorded_log_into_active-response-log.png)
+- The malicious IP has been add into ipset:
 ![add malicious ip into ipset](../../asset/add_malicious_ip_into_ipset.png)
-![recorded log into active-responses.log](../../asset/recorded_log_into_active-responses-log.png)
 - Finally, iptables reads from ipset to determine which IPs are malicious and blocks them (all 51,727 packets were blocked; a difference of 1 packet may occur due to network latency, which is normal):
 ![blocked_ip](../../asset/blocked_ip.png)
 
@@ -30,7 +31,7 @@ N/A
 ### Install Wazuh system
 Because the system runs on Wazuh, you need to [install](https://documentation.wazuh.com/current/installation-guide/index.html) it first.
 ### Configure in manager:
-First we need to configure **local rules** for the manager. Open the file `/var/ossec/etc/rules/local_rules.xml` and add the rule below to the end of the file:
+- First we need to configure **local rules** for the manager. Open the file `/var/ossec/etc/rules/local_rules.xml` and add the rule below to the end of the file:
 ```
 <group name="anti_DOS">
   <rule id="100050" level="12">
@@ -40,7 +41,7 @@ First we need to configure **local rules** for the manager. Open the file `/var/
   </rule>
 </group>
 ```
-The source IP is read from the log file sent by the agents.  
+- The source IP is read from the log file sent by the agents.  
 Next, we need to set up the **active-response** module by adding the following configuration to `/var/ossec/etc/ossec.conf`:
 ```
 <command>
