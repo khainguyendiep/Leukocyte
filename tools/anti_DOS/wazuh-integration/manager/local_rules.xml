@@ -1,0 +1,8 @@
+<group name="anti_DOS">
+  <rule id="100050" level="12">
+    <decoded_as>json</decoded_as>
+    <field name="event_type">DOS attack detected</field>
+    <description>Alert: Anti-DoS System Triggered | Source IP: $(network.src_ip)</description>
+  </rule>
+</group>
+
