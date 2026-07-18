@@ -45,7 +45,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			state->timeEnd = std::chrono::steady_clock::now();
 			std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(state->timeEnd - state->timeBegin);
 			if(elapsedTime.count() <= DOSTIMETHRESHOLD){
-				printf("The server got a Dos attack from %s\n", captured_packet.src_ip);
+				printf("The server got a DoS attack from %s\n", captured_packet.src_ip);
 
 				LogEvent event;
 				event.event_time = format_timestamp_from_header(header);
