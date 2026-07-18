@@ -28,8 +28,8 @@ CORE_OBJS = $(CORE_SRCS:.cpp=.o)
 
 # ─── anti_DOS tool ─────────────────────────────────────────────────────────────
 ANTIDOS_TARGET = anti_DOS
-ANTIDOS_SRCS   = tools/anti_DOS/main.cpp \
-                 tools/anti_DOS/anti_DOS.cpp
+ANTIDOS_SRCS   = tools/anti_DOS/src/main.cpp \
+                 tools/anti_DOS/src/anti_DOS.cpp
 ANTIDOS_OBJS   = $(ANTIDOS_SRCS:.cpp=.o)
 
 # ─── port_scan_detector tool ───────────────────────────────────────────────────
