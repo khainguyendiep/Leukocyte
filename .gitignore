@@ -10,7 +10,7 @@
 
 # ─── Executable files (tool binaries) ─────────────────────────────────────────
 # Leading slash anchors the pattern to project root only — prevents matching
-# tools/anti_DOS/ directory or any other subdirectory with the same name
-/anti_DOS
+# tools/anti-DoS/ directory or any other subdirectory with the same name
+/anti-DoS
 /port_scan_detector
 /brute_force

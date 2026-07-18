@@ -29,7 +29,7 @@ struct DosDetectorState{
 	long long countCapturedPacket;
 	std::priority_queue<std::pair<std::string, int>, std::vector<std::pair<std::string, int>>, struct comparator> most_sender;
 	hash_struct *hash_head = NULL;
-	const std::string LOG_PATH = "/var/log/anti_DOS/anti_DOS.log";
+	const std::string LOG_PATH = "/var/log/anti-DoS/anti-DoS.log";
 };
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);

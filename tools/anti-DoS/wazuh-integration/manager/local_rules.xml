@@ -1,4 +1,4 @@
-<group name="anti_DOS">
+<group name="anti-DoS">
   <rule id="100050" level="12">
     <decoded_as>json</decoded_as>
     <field name="event_type">DOS attack detected</field>

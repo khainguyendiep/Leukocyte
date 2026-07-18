@@ -1,4 +1,4 @@
-#include "anti_DOS.h"
+#include "anti-DoS.h"
 #include "core/logger/logger.h"
 #include "core/utils/utils.h"
 #include "core/network/packetParser.h"
@@ -49,8 +49,8 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
 				LogEvent event;
 				event.event_time = format_timestamp_from_header(header);
-				event.tool = "anti_DOS";
-				event.event_type = "DOS attack detected";
+				event.tool = "anto-DoS";
+				event.event_type = "DoS attack detected";
 				event.severity = "high";
 				event.threat_id = 100050;
 				event.src_ip = captured_packet.src_ip;

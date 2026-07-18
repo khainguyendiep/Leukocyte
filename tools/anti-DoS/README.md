@@ -8,7 +8,7 @@ The Anti-DoS system is an automated monitoring and mitigation solution designed 
 The system architecture and workflow operate as follows:
 
 1. **Traffic Detection and Analysis:** A custom utility leveraging the `pcap` library captures network packets and tracks incoming traffic volume per source IP using a Hash Table data structure. Anomalous behavior—simulated via `hping3` with `-S --flood` flags—is identified when an IP exceeds a predefined threshold (an empirical baseline of $8000 \text{ packets} / 10\text{s}$ was utilized, subject to further calibration).
-2. **Logging and Alerting:** Upon threshold violation, the utility logs the event into `anti_DOS.log`. The Wazuh Manager is configured via `ossec.conf` to monitor this log file in real-time. Once a new log entry is detected, it triggers a corresponding alert on the Wazuh Dashboard.
+2. **Logging and Alerting:** Upon threshold violation, the utility logs the event into `anti-DoS.log`. The Wazuh Manager is configured via `ossec.conf` to monitor this log file in real-time. Once a new log entry is detected, it triggers a corresponding alert on the Wazuh Dashboard.
 3. **Automated Mitigation (Active-Response):** Upon alert generation, the Wazuh Manager forwards the event payload in JSON format via `stdin` to a configured Active-Response bash script named `ipset-block.sh`. This script parses the target IP from the JSON payload, invokes `iptables` to drop the malicious traffic, and appends the IP to an `ipset` group. The blocked IP is automatically unbanned after a default TTL (Time-To-Live) of 600 seconds.
 
 ## Demo
@@ -33,10 +33,10 @@ Because the system runs on Wazuh, you need to [install](https://documentation.wa
 ### Configure in manager:
 - First we need to configure **local rules** for the manager. Open the file `/var/ossec/etc/rules/local_rules.xml` and add the rule below to the end of the file:
 ```
-<group name="anti_DOS">
+<group name="anti-DoS">
   <rule id="100050" level="12">
     <decoded_as>json</decoded_as>
-    <field name="event_type">DOS attack detected</field>
+    <field name="event_type">DoS attack detected</field>
     <description>Alert: Anti-DoS System Triggered | Source IP: $(network.src_ip)</description>
   </rule>
 </group>
@@ -68,22 +68,22 @@ Remember to restart the **wazuh-manager** service after configuring:
 systemctl restart wazuh-manager
 ```
 ### Configure in agents
-First, we need to specify a location where `anti_DOS.cpp` can write its logs, and where wazuh-agent can read them before sending them to the manager. In this case, the location is `/var/log/anti_DOS/anti_DOS.log`. Add the following configuration to `/var/ossec/etc/ossec.conf`:
+First, we need to specify a location where `anti-DoS.cpp` can write its logs, and where wazuh-agent can read them before sending them to the manager. In this case, the location is `/var/log/anti-DoS/anti-DoS.log`. Add the following configuration to `/var/ossec/etc/ossec.conf`:
 ```
 <ossec_config>
     <localfile>
         <log_format>json</log_format>
-        <location>/var/log/anti_DOS/anti_DOS.log</location>
+        <location>/var/log/anti-DoS/anti-DoS.log</location>
         <only-future-events>yes</only-future-events>
     </localfile>
 </ossec_config>
 ```
-Remember to grant read and write permissions on `anti_DOS.log` to the owner:
+Remember to grant read and write permissions on `anti-DoS.log` to the owner:
 ```
-chmod 644 /var/log/anti_DOS/anti_DOS.log
+chmod 644 /var/log/anti-DoS/anti-DoS.log
 ```
 Create a script to automatically block malicious IP(s) in ```/var/ossec/active-response/bin/```.
-You can see the script in [ipset-block.sh](tools/anti_DOS/wazuh-integration/agents/active-response/ipset-block.sh).  
+You can see the script in [ipset-block.sh](tools/anti-DoS/wazuh-integration/agents/active-response/ipset-block.sh).  
 Configure access right for wazuh: 
 ```
 chown root:wazuh /var/ossec/active-response/bin/ten_script_cua_ban.sh
@@ -159,7 +159,7 @@ Go to the repo directory:
 ```
 cd Leukocyte
 ```
-Compile the anti_DOS tool (it might also compile other tools, but don't worry about that!):
+Compile the anti-DoS tool (it might also compile other tools, but don't worry about that!):
 ```
 make
 ```
@@ -172,9 +172,9 @@ And that **wazuh-agent** is active on the agent machines:
 sudo systemctl status wazuh-agent
 ```
 If everything has status **active (running)**, go to the next step.    
-Run the anti_DOS tool to start capturing packets:
+Run the anti-DoS tool to start capturing packets:
 ```
-sudo ./anti_DOS
+sudo ./anti-DoS
 ```
 If the condition described in [Traffic Detection and Analysis](#idea) is met, the blocking process will start. Check the result of the blocking using:
 ```

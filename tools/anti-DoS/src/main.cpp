@@ -2,7 +2,7 @@
 #include <pcap.h>
 #include "core/network/networkUtils.h"
 #include "core/utils/utils.h"
-#include "anti_DOS.h"
+#include "anti-DoS.h"
 
 const int MAX_DEVS = 10000; //just a random number
 int main(){

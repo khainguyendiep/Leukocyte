@@ -26,10 +26,10 @@ CORE_SRCS = core/logger/logger.cpp \
             core/utils/utils.cpp
 CORE_OBJS = $(CORE_SRCS:.cpp=.o)
 
-# ─── anti_DOS tool ─────────────────────────────────────────────────────────────
-ANTIDOS_TARGET = anti_DOS
-ANTIDOS_SRCS   = tools/anti_DOS/src/main.cpp \
-                 tools/anti_DOS/src/anti_DOS.cpp
+# ─── anti-DoS tool ─────────────────────────────────────────────────────────────
+ANTIDOS_TARGET = anti-DoS
+ANTIDOS_SRCS   = tools/anti-DoS/src/main.cpp \
+                 tools/anti-DoS/src/anti-DoS.cpp
 ANTIDOS_OBJS   = $(ANTIDOS_SRCS:.cpp=.o)
 
 # ─── port_scan_detector tool ───────────────────────────────────────────────────
@@ -44,7 +44,7 @@ ALL_OBJS = $(CORE_OBJS) $(ANTIDOS_OBJS) $(PORTSCAN_OBJS)
 # ─── Default target: build all tools ──────────────────────────────────────────
 all: setup $(ANTIDOS_TARGET) $(PORTSCAN_TARGET)
 
-# Link anti_DOS: its own objects + shared core objects
+# Link anti-DoS: its own objects + shared core objects
 $(ANTIDOS_TARGET): $(ANTIDOS_OBJS) $(CORE_OBJS)
 	$(CXX) $(CXXFLAGS) $(INC) -o $@ $^ $(LIBS)
 
