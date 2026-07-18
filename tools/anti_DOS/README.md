@@ -82,8 +82,12 @@ Remember to grant read and write permissions on `anti_DOS.log` to the owner:
 ```
 chmod 644 /var/log/anti_DOS/anti_DOS.log
 ```
-Create a script to automatically block malicious IP(s):  
-You can see it in [ipset-block.sh](tools/anti_DOS/wazuh-integration/agents/active-response/ipset-block.sh).  
+Create a script to automatically block malicious IP(s) in ```/var/ossec/active-response/bin/```.
+You can see the script in [ipset-block.sh](tools/anti_DOS/wazuh-integration/agents/active-response/ipset-block.sh).  
+Configure access right for wazuh: 
+```
+chown root:wazuh /var/ossec/active-response/bin/ten_script_cua_ban.sh
+```
 Remember to restart the **wazuh-agent** service after configuring:
 ```
 systemctl restart wazuh-agent
@@ -100,14 +104,6 @@ sudo ipset create antidos-block hash:ip timeout 600
 ```
 - The timeout value can be changed based on your needs.  
 ### Configure iptables firewall in agents
-If `iptables` is not installed on the agents, use the command below in the terminal:
-```
-sudo apt install iptables
-```
-Start and enable (auto-start on reboot) the **iptables** service:
-```
-sudo systemctl start iptables && sudo systemctl enable iptables
-```
 Create an iptables rule that references this ipset:
 ```
 sudo iptables -I INPUT -m set --match-set antidos-block src -j DROP
@@ -117,13 +113,14 @@ This immediately inserts a rule at the top of the firewall chain (`-I INPUT`): w
 Because iptables firewall rules only exist in RAM, all firewall rules are cleared whenever the agent reboots. So we need to install a service called `netfilter-persistent`, which allows us to save the firewall rules to a file before rebooting.  
 Install the `netfilter-persistent` service first:
 ```
-sudo apt-get install iptables-persistent netfilter-persistent
+sudo apt-get install iptables-persistent
 ```
+When installing```iptables-persistent```, the ```netfilter-persistent``` service is loaded along with it.  
 Then save the iptables firewall rules (you need to do this at least once before rebooting):
 ```
 sudo netfilter-persistent save
 ```
-After running this command, all firewall rules are saved in `/etc/iptables/rules.v4` (for IPv4) and `rules.v6` (for IPv6). When the agent reboots, `netfilter-persistent.service` (managed by systemd) automatically runs `iptables-restore < /etc/iptables/rules.v4` and loads those rules into the kernel before startup.  
+After running this command, all firewall rules are saved in `/etc/iptables/rules.v4` (for IPv4) and `rules.v6` (for IPv6). When the agent is rebooted, `netfilter-persistent.service` (managed by systemd) automatically runs `iptables-restore < /etc/iptables/rules.v4` and loads those rules into the kernel before startup.  
 We should not persist the state of ipset across reboots. Instead, a new ipset should be created empty (containing no IPs) each time, to avoid inadvertently blocking IPs that have already been unblocked due to timeout expiration. To create a service that automatically generates a new ipset after each reboot and loads the iptables rules, run the commands below in the terminal:
 ```
 sudo bash -c "cat << 'EOF' > /etc/systemd/system/ipset-restore.service
@@ -147,6 +144,10 @@ Enable the service:
 ```
 sudo systemctl daemon-reload
 sudo systemctl enable ipset-restore.service
+```
+Enable `netfilter-persistent` service:
+```
+sudo systemctl enable netfilter-persistent
 ```
 ### Clone the repo into agents
 After completing the Wazuh installation, clone this repo:
